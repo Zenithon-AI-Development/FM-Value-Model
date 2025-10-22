@@ -1,0 +1,160 @@
+# Fusion "Reasonable Value" Model - Inputs Configuration
+# Single source of truth for central values, stochastic priors, and source references
+# All values in USD 2025, units noted inline
+
+base_config:  # main model configuration
+  meta:  # metadata / units
+    currency: "USD_2025"  # currency base year
+    power_net_MW: 1000  # net electrical output per plant (MW)
+
+  finance:  # financing parameters
+    wacc_real: 0.08  # real WACC (discount rate)
+    life_years: 30  # plant economic lifetime (years)
+
+  ops:  # operations parameters
+    cf_base_initial: 0.30  # FOAK capacity factor (lower initial as requested)
+    cf_base_mature: 0.75   # Slightly higher mature CF
+    fom_base_per_year: 100e6  # $100M/yr for 500MW
+    vom_base_per_MWh: 2.0    # $2/MWh
+    commissioning_ramp_years: 10  # Longer ramp for more gradual LCOE improvement
+
+  schedule:  # durations and risks for project delivery
+    design_months_mode: 30  # design phase duration (mode, months)
+    epc_months_mode: 72  # EPC phase duration (mode, months)
+    commission_months_mode: 12  # commissioning duration (mode, months)
+    rework_prob: 0.25  # probability of design rework
+    epc_rework_tail_prob: 0.05  # chance of late EPC rework tail
+    epc_rework_tail_factor: 0.05  # magnitude of EPC rework tail
+    uplift_lognorm_mu: 0.20  # reference-class uplift (mean)
+    uplift_lognorm_sigma: 0.15  # reference-class uplift (sigma)
+
+  experiments:  # experimental cadence inputs
+    shots_per_gate: 1200  # required shots per milestone/gate
+    shot_success_prob: 0.60  # per-shot success probability
+    shots_per_day: 20  # achievable shots per day
+    days_per_campaign: 40  # campaign length (days)
+    days_between_campaigns: 30  # turnaround between campaigns (days)
+
+  adoption:  # industry deployment model
+    model: "ceiling"  # exponential additions with supply ceiling
+    t_mid_base: 2058.0  # baseline inflection (for reporting)
+    k_base: 0.08        # baseline slope (for reporting)
+    n_max: 300  # not enforced in ceiling model; kept for reporting
+    max_build_rate_per_year: 1000  # maximum annual builds (supply ceiling)
+    ceiling_start_per_year: 0.5  # initial annual build capability
+    ceiling_growth: 0.11         # annual growth of build capability
+
+  fm_adoption:  # FM adoption among companies (separate from reactors)
+    total_companies: 50  # number of fusion companies
+    t_mid: 2028.0  # year when 50% adopt FM
+    k: 0.35        # adoption steepness among companies
+
+  learning:  # CAPEX learning curve parameters
+    capex0_FOAK_USD: 10_000_000_000  # FOAK CAPEX
+    capex_floor_USD: 3_000_000_000   # lower bound on CAPEX (floor) ~ 'should cost' for 1 GW (≈$4.2k/kW)
+    b_exponent: 0.2  # experience curve exponent (doubling effect)
+    g_exogenous_per_year: 0.0  # exogenous annual progress (baseline)
+    N0: 1.0  # reference cumulative units
+    t0: 2025.0  # reference year / model start
+    inertia_years: 15.0  # smoothing horizon for CAPEX response
+
+  fm_effects:  # FM channels and their primary knobs
+    simulation:  # design/simulations
+      delta_g_per_year: 0.018  # faster exogenous progress via real-time multi-physics surrogates (Rubin/Nagy anchoring)
+      design_time_reduction_pct: 0.50  # hours→real-time simulation enables ~50%+ faster iteration; set 60% incl. parallelism
+      rework_prob_reduction_pct: 0.2  # fewer late surprises due to wider design-space exploration
+    experiments:  # experimental efficiency
+      shots_reduction_pct: 0.40  # active learning/BO improves shot selection (DIII-D) → fewer shots needed
+      success_prob_uplift: 0.10  # better targetting raises per-shot success probability (conservative)
+    control:  # operations/control
+      cf_uplift_abs: 0.05  # absolute CF uplift from better stability/disruption avoidance (TCV DRL control)
+      fom_reduction_pct: 0.20  # Fixed O&M reduction via predictive maintenance / automated ops
+      vom_reduction_pct: 0.20  # Variable O&M reduction via better set-points and transients
+    sharing:  # choose one: k multiplier (default) or b delta
+      delta_b_exponent: 0.00  # set >0 only if switching to b-sharing
+      k_multiplier: 1.20  # steeper industry adoption via shared/joint parameter spaces; keep b-sharing at 0 to avoid double count
+
+priors:  # Monte Carlo distributions for uncertain inputs
+  finance.wacc_real:
+    dist: "triangular"  # min, mode, max
+    params: [0.06, 0.08, 0.10]  # real WACC
+  
+  learning.b_exponent:
+    dist: "triangular"  # experience curve exponent
+    params: [0.22, 0.30, 0.38]
+  
+  learning.capex_floor_USD:
+    dist: "triangular"  # CAPEX floor
+    params: [4.0e9, 4.75e9, 5.5e9]
+  
+  adoption.k_base:
+    dist: "triangular"  # adoption slope (reporting)
+    params: [0.15, 0.20, 0.30]
+  
+  schedule.design_months:
+    dist: "triangular"  # design duration
+    params: [18, 30, 48]
+  
+  schedule.epc_months:
+    dist: "triangular"  # EPC duration
+    params: [48, 72, 96]
+  
+  schedule.commission_months:
+    dist: "triangular"  # commissioning duration
+    params: [6, 12, 24]
+  
+  schedule.rework_prob:
+    dist: "triangular"  # design rework probability
+    params: [0.15, 0.25, 0.35]
+  
+  schedule.rework_factor:
+    dist: "triangular"  # design rework magnitude
+    params: [0.05, 0.10, 0.20]
+  
+  schedule.epc_rework_tail_prob:
+    dist: "triangular"  # EPC late rework tail probability
+    params: [0.02, 0.05, 0.08]
+  
+  schedule.epc_rework_tail_factor:
+    dist: "triangular"  # EPC late rework tail magnitude
+    params: [0.03, 0.05, 0.10]
+  
+  schedule.uplift_lognorm_mu:
+    dist: "constant"  # reference-class uplift mean
+    params: [0.20]
+  
+  schedule.uplift_lognorm_sigma:
+    dist: "constant"  # reference-class uplift sigma
+    params: [0.15]
+  
+  experiments.shots_per_gate:
+    dist: "triangular"  # shots per gate
+    params: [800, 1200, 1600]
+  
+  experiments.shot_success_prob:
+    dist: "triangular"  # per-shot success probability
+    params: [0.50, 0.60, 0.75]
+  
+  ops.cf_base_initial:
+    dist: "triangular"  # initial CF range
+    params: [0.50, 0.55, 0.65]
+  
+  ops.cf_base_mature:
+    dist: "triangular"  # mature CF range
+    params: [0.75, 0.80, 0.90]
+  
+  ops.fom_base_per_year:
+    dist: "triangular"  # annual fixed O&M
+    params: [70e6, 100e6, 150e6]
+  
+  ops.vom_base_per_MWh:
+    dist: "triangular"  # variable O&M per MWh
+    params: [1.0, 2.0, 4.0]
+
+sources:
+  finance: ["EIA LCOE methodology", "NREL ATB definitions"]
+  learning: ["Rubin et al. (Energy Policy) learning curve review", "Nagy et al. (PLOS ONE) forecast error growth"]
+  adoption: ["Bass/logistic diffusion literature; energy tech diffusion", "Supply-chain scaling in nuclear new build (IAEA/NEA)"]
+  schedule: ["IAEA/NEA nuclear project mgmt; reference-class forecasting"]
+  experiments: ["DIII-D Bayesian optimization (active learning)", "Surrogate models / real-time inference for plasma scenarios"]
+  ops: ["EIA/NREL LCOE definitions for CF/O&M taxonomy", "DRL magnetic control (TCV/Nature) — improved stability"]
