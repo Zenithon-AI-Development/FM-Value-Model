@@ -1,4 +1,4 @@
-# Foundation Model for Fusion Value Estimates
+#Estimating the Value of a Foundation MOdel for Plasma Physics
 
 Quantifies the value of a fusion Foundation Model (FM) by tracing a transparent, non‑overlapping causal chain from R&D to operations to economics. Produces CAPEX/LCOE trajectories, parity timing, total CAPEX and savings, and total deployed fusion power.
 
@@ -102,3 +102,4 @@ fmvalue/
 
 - Validation: `commissioning_ramp_years` must be ≤ 10 (see `fmvalue/models.py`). If you want longer ramps, lower the YAML value or relax the constraint in the model.
 - Bands not tracking lines: ensure the notebook is run top‑to‑bottom after any YAML change so deterministic paths and MC ribbons use the same inputs.
+
